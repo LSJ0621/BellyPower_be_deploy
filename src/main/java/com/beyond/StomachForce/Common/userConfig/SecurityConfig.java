@@ -52,7 +52,7 @@ public class SecurityConfig {
 
     private CorsConfigurationSource corsConfigurationSource(){
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000","www.naver.com"));
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000","https://www.stomachforce.shop","http://www.stomachforce.shop" ));
         configuration.setAllowedMethods(Arrays.asList("*"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
