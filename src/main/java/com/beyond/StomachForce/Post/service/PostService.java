@@ -60,16 +60,30 @@ public class PostService {
         Post tempPost = postCreateReq.toEntity(user);
         Post post = postRepository.save(tempPost);
         List<MultipartFile> images = postCreateReq.getPostPhotos();
-        for(int i=0; i<images.size();i++){
-            byte[] bytes = images.get(i).getBytes();
-            String fileName = user.getId()+"_"+ images.get(i).getOriginalFilename();
-            Path path = Paths.get("C:/Users/Playdata/Desktop/tmp/",fileName);
-            Files.write(path,bytes, StandardOpenOption.CREATE,StandardOpenOption.WRITE);
-            PutObjectRequest putObjectRequest = PutObjectRequest.builder().bucket(bucket).key(fileName).build();
-            s3Client.putObject(putObjectRequest, RequestBody.fromFile(path));
-            String s3Url = s3Client.utilities().getUrl(a->a.bucket(bucket).key(fileName)).toExternalForm();
-//            PostPhotos postPhotos = PostPhotos.builder().postPhoto(s3Url).post(post).build();
-            post.updatePostImagePath(s3Url);
+        for(MultipartFile image : images){
+            try {
+                String fileName = user.getId() + "_" + image.getOriginalFilename();
+                
+                // ✅ 바로 S3에 업로드 (로컬 파일 저장 없이)
+                PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                        .bucket(bucket)
+                        .key(fileName)
+                        .contentType(image.getContentType()) // ✅ 파일 타입 설정
+                        .build();
+    
+                // ✅ S3에 메모리에서 바로 업로드 (RequestBody.fromBytes 사용)
+                s3Client.putObject(putObjectRequest, RequestBody.fromBytes(image.getBytes()));
+    
+                // ✅ S3에서 URL 가져오기
+                String s3Url = s3Client.utilities().getUrl(a -> a.bucket(bucket).key(fileName)).toExternalForm();
+                if (s3Url == null || s3Url.isEmpty()) {
+                    throw new RuntimeException("🚨 S3 URL 가져오기 실패: " + fileName);
+                }
+    
+                post.updatePostImagePath(s3Url);
+            } catch (IOException e) {
+                throw new RuntimeException("🚨 이미지 업로드 중 오류 발생: " + e.getMessage(), e);
+            }
         }
         return post;
     }
