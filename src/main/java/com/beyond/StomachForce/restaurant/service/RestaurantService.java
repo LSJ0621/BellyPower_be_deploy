@@ -162,66 +162,74 @@ public class RestaurantService {
         return restaurant.detailFromEntity(informationTexts);
     }
 
-    public Long save(RestaurantCreateReq restaurantCreateReq){
+    public Long save(RestaurantCreateReq restaurantCreateReq) {
 
-        if(restaurantRepository.findByEmail(restaurantCreateReq.getEmail()).isPresent()){
+        if (restaurantRepository.findByEmail(restaurantCreateReq.getEmail()).isPresent()) {
             throw new IllegalArgumentException("email already exists");
         }
-        if(restaurantCreateReq.getPassword().length()<8){
+        if (restaurantCreateReq.getPassword().length() < 8) {
             throw new IllegalArgumentException("비번 너무 짧아요");
         }
         if (restaurantRepository.findByName(restaurantCreateReq.getName()).isPresent()) {
             throw new IllegalArgumentException("이미 존재하는 레스토랑 이름입니다.");
         }
-
-        //      비번 암호화
+    
+        // 비밀번호 암호화
         String password = passwordEncoder.encode(restaurantCreateReq.getPassword());
-        //      save 메서드도 사용할 겸 사진을 넣을 때 필요한 restaurant 객체 생성
+    
+        // 레스토랑 저장 (일단 사진 없이 저장)
         Restaurant restaurant = restaurantRepository.save(restaurantCreateReq.toEntity(password));
-        //      사진 넣을 list 생성
+    
+        // ✅ `getPhotos()`가 `null`이면 빈 리스트로 초기화 (NullPointerException 방지)
+        if (restaurant.getPhotos() == null) {
+            restaurant.setPhotos(new ArrayList<>());
+        }
+    
+        List<MultipartFile> images = restaurantCreateReq.getRestaurantPhotos();
         List<RestaurantPhoto> restaurantPhotos = new ArrayList<>();
-
-        //      aws에 image 저장 후에 url 추출
-        //      aws에 s3 접근 가능한  iam(새끼계정)계정 생성 iam계정을 통해 aws에 접근 가능한 접근 객체 생성(config에 AwsS3Config)
-
-        //지금의 경우 List형태이므로 for문으로 통해 하나하나 넣어야함
-         for (MultipartFile image : restaurantCreateReq.getRestaurantPhotos()) {
+    
+        for (MultipartFile image : images) {
             try {
                 String fileName = restaurant.getId() + "_" + image.getOriginalFilename();
-
-                // S3에 업로드
+    
+                // ✅ S3에 바로 업로드 (ACL 제거, contentType 추가)
                 PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                         .bucket(bucket)
                         .key(fileName)
-                        .acl(ObjectCannedACL.PUBLIC_READ) // 파일 공개 설정
+                        .contentType(image.getContentType()) // ✅ 파일 타입 설정
                         .build();
-
+    
                 s3Client.putObject(putObjectRequest, RequestBody.fromBytes(image.getBytes()));
-
-                // S3 URL 생성
+    
+                // ✅ S3에서 URL 가져오기
                 String s3Url = s3Client.utilities()
                         .getUrl(a -> a.bucket(bucket).key(fileName))
                         .toExternalForm();
-
-                // RestaurantPhoto 객체 생성 및 리스트에 추가
+    
+                if (s3Url == null || s3Url.isEmpty()) {
+                    throw new RuntimeException("🚨 S3 URL 가져오기 실패: " + fileName);
+                }
+    
+                // ✅ 레스토랑 사진 객체 생성 후 리스트에 추가
                 RestaurantPhoto restaurantPhoto = RestaurantPhoto.builder()
                         .photoUrl(s3Url)
-                        .restaurant(restaurant) // 레스토랑과 연관 관계 설정
+                        .restaurant(restaurant) // 레스토랑과 연결
                         .build();
-
+    
                 restaurantPhotos.add(restaurantPhoto);
-
+    
             } catch (IOException e) {
-                throw new RuntimeException("이미지 저장 실패", e);
+                throw new RuntimeException("🚨 이미지 업로드 중 오류 발생: " + e.getMessage(), e);
             }
         }
-
-        restaurant.getPhotos().addAll(restaurantPhotos);;
+    
+        // ✅ 기존 방식 유지: getPhotos()에 사진 리스트 추가 후 저장
+        restaurant.getPhotos().addAll(restaurantPhotos);
         restaurantRepository.save(restaurant);
-
+    
         return restaurant.getId();
-
     }
+    
 
     public Map<String, Object> login(LoginDto dto){
         // 사업자등록증 여부 확인
