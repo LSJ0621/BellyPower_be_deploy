@@ -44,6 +44,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
@@ -184,36 +185,34 @@ public class RestaurantService {
         //      aws에 s3 접근 가능한  iam(새끼계정)계정 생성 iam계정을 통해 aws에 접근 가능한 접근 객체 생성(config에 AwsS3Config)
 
         //지금의 경우 List형태이므로 for문으로 통해 하나하나 넣어야함
-        for(MultipartFile image: restaurantCreateReq.getRestaurantPhotos()){
+         for (MultipartFile image : restaurantCreateReq.getRestaurantPhotos()) {
             try {
-                byte[] bytes = image.getBytes();
                 String fileName = restaurant.getId() + "_" + image.getOriginalFilename();
-                //      먼저 local에 저장
-                Path path = Paths.get("C:/Users/Playdata/Desktop/testFolder" , fileName);
-                Files.write(path, bytes, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
-                //      저장을 위한 request 객체(s3 업로드 요청)
+
+                // S3에 업로드
                 PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                         .bucket(bucket)
                         .key(fileName)
+                        .acl(ObjectCannedACL.PUBLIC_READ) // 파일 공개 설정
                         .build();
-                //      저장 실행(s3업로드)
-                s3Client.putObject(putObjectRequest, RequestBody.fromFile(path));
 
-                //      저장된 s3url 갖고오기
-                String s3Url = s3Client.utilities().getUrl(a->a.bucket(bucket).key(fileName)).toExternalForm();
+                s3Client.putObject(putObjectRequest, RequestBody.fromBytes(image.getBytes()));
 
-//                restaurantPhotos.add(s3Url); 이렇게 하면 안되고 객체 생성해서,,,주입해야함
-                //  레스토랑포토 객체 생성 후에 리스트에 담기
+                // S3 URL 생성
+                String s3Url = s3Client.utilities()
+                        .getUrl(a -> a.bucket(bucket).key(fileName))
+                        .toExternalForm();
+
+                // RestaurantPhoto 객체 생성 및 리스트에 추가
                 RestaurantPhoto restaurantPhoto = RestaurantPhoto.builder()
                         .photoUrl(s3Url)
-                        .restaurant(restaurant)
+                        .restaurant(restaurant) // 레스토랑과 연관 관계 설정
                         .build();
-                // 그리고 list에 넣는다
+
                 restaurantPhotos.add(restaurantPhoto);
 
-
             } catch (IOException e) {
-                throw new RuntimeException("이미지 저장 실패");
+                throw new RuntimeException("이미지 저장 실패", e);
             }
         }
 
