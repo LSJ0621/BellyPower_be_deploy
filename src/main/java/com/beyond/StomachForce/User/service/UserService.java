@@ -138,17 +138,29 @@ public class UserService {
         String identify = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByIdentify(identify).orElseThrow(()->new EntityNotFoundException("없는 회원입니다."));
         String s3Url = "";
-        if(userUpdateReq.getProfilePhoto()!= null){
+        if (userUpdateReq.getProfilePhoto() != null) {
             MultipartFile image = userUpdateReq.getProfilePhoto();
-            byte[] bytes = image.getBytes();
-            String fileName =image.getOriginalFilename();
-            Path path = Paths.get("C:/Users/Playdata/Desktop/tmp/",fileName);
-            Files.write(path,bytes, StandardOpenOption.CREATE,StandardOpenOption.WRITE);
-            PutObjectRequest putObjectRequest = PutObjectRequest.builder().bucket(bucket).key(fileName).build();
-            s3Client.putObject(putObjectRequest, RequestBody.fromFile(path));
-            s3Url = s3Client.utilities().getUrl(a->a.bucket(bucket).key(fileName)).toExternalForm();
-        }else{
-            s3Url = user.getProfilePhoto();
+            String fileName = user.getId() + "_" + image.getOriginalFilename(); // S3에 저장할 파일명
+    
+            try {
+                // ✅ S3에 메모리에서 바로 업로드 (RequestBody.fromBytes 사용)
+                PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                        .bucket(bucket)
+                        .key(fileName)
+                        .contentType(image.getContentType()) // ✅ 파일 타입 설정
+                        .build();
+    
+                s3Client.putObject(putObjectRequest, RequestBody.fromBytes(image.getBytes()));
+    
+                // ✅ S3에서 URL 가져오기
+                s3Url = s3Client.utilities().getUrl(a -> a.bucket(bucket).key(fileName)).toExternalForm();
+                if (s3Url == null || s3Url.isEmpty()) {
+                    throw new RuntimeException("🚨 S3 URL 가져오기 실패: " + fileName);
+                }
+    
+            } catch (IOException e) {
+                throw new RuntimeException("🚨 이미지 업로드 중 오류 발생: " + e.getMessage(), e);
+            }
         }
         user.updateUser(userUpdateReq,s3Url);
         String redisKey = user.getIdentify();
