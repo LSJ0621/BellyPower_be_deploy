@@ -39,17 +39,15 @@ spring :
 
 jwt:
   expiration: 30
-  #  beyondaccesstoeknsecretkeybeyondaccesstoeknsecretkeybeyondaccesstoeknsecretkeybeyondaccesstoeknsecretkey
-  secretKey: YmV5b25kYWNjZXNzdG9la25zZWNyZXRrZXliZXlvbmRhY2Nlc3N0b2VrbnNlY3JldGtleWJleW9uZGFjY2Vzc3RvZWtuc2VjcmV0a2V5YmV5b25kYWNjZXNzdG9la25zZWNyZXRrZXk=
+  secretKey: ${JWT_SECRET}
   expirationRT: 288000
-  #  beyondrefreshsecrettokenkeybeyondrefreshsecrettokenkeybeyondrefreshsecrettokenkey
-  secretKeyRT: YmV5b25kcmVmcmVzaHNlY3JldHRva2Vua2V5YmV5b25kcmVmcmVzaHNlY3JldHRva2Vua2V5YmV5b25kcmVmcmVzaHNlY3JldHRva2Vua2V5
+  secretKeyRT: ${JWT_SECRET_RT}
 
 oauth:
   google:
-    client-id: 752078374240-4tdtnn7i8de5jpavh9qbupu7nbimt5rn.apps.googleusercontent.com
-    client-secret: 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
-    redirect_uri: https://www.stomachforce.shop/oauth/google/redirect
+    client-id: ${OUATH_CLIENT}
+    client-secret: ${OUATH_SECRET}
+    redirect_uri: ${OUATH_REDIRECT}
 
 cloud:
   aws:
